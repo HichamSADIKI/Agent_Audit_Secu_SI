@@ -1,0 +1,24 @@
+# Exemple : API multi-réplique derrière Caddy (load-balancing).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#                  -f docker-compose.scale.yml up -d
+#
+# Caddy répartit la charge sur les répliques par résolution DNS dynamique
+# (cf. infra/caddy/Caddyfile, bloc `dynamic a` → DNS Docker 127.0.0.11).
+#
+# À retenir :
+#  - le service `api` perd son container_name fixe (sinon réplication impossible) ;
+#  - 1 process uvicorn par réplique → concurrence totale = nombre de répliques ;
+#  - le `scheduler` reste en instance unique (NE PAS le répliquer).
+#
+# Nécessite Docker Compose ≥ 2.24 (tags de fusion !reset / !override).
+name: guardianops
+
+services:
+  api:
+    # Un nom de conteneur fixe empêche la mise à l'échelle → on le retire.
+    container_name: !reset null
+    # Une seule instance uvicorn par réplique (la réplication assure le parallélisme).
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    deploy:
+      replicas: ${API_REPLICAS:-3}

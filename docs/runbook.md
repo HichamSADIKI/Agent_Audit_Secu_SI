@@ -188,16 +188,32 @@ L'API est **sans état** : la détection périodique des machines offline tourne
 dans un process séparé (`app/scheduler.py`, service `scheduler`). On peut donc
 scaler l'API librement.
 
-**Workers uvicorn** — régler `API_WORKERS` dans `.env` (défaut 2 ; repère :
-`(2 × cœurs) + 1`), puis (re)lancer la stack prod :
+Deux dimensions de scaling, combinables :
+
+**1. Workers uvicorn (un conteneur, N process)** — régler `API_WORKERS` dans
+`.env` (défaut 2 ; repère : `(2 × cœurs) + 1`), puis :
 
 ```bash
 echo "API_WORKERS=4" >> .env
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d api
 ```
 
-La commande prod de l'API devient alors `uvicorn … --workers 4`. C'est sûr
-uniquement parce que l'API ne porte plus de tâche de fond (cf. `scheduler`).
+La commande prod de l'API devient `uvicorn … --workers 4`.
+
+**2. Répliques derrière Caddy (N conteneurs load-balancés)** — surcouche
+`docker-compose.scale.yml`. Caddy répartit la charge par résolution DNS
+dynamique (`infra/caddy/Caddyfile`, bloc `dynamic a`, rafraîchi toutes les 5 s) :
+
+```bash
+echo "API_REPLICAS=3" >> .env
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+               -f docker-compose.scale.yml up -d
+```
+
+Les deux sont sûrs uniquement parce que l'API est **sans état** : aucune tâche
+de fond (cf. `scheduler`, instance unique), session via JWT, ticket WebSocket et
+événements via **Redis partagé** (n'importe quelle réplique sert n'importe quelle
+requête, y compris la consommation d'un ticket émis par une autre).
 
 Garde-fous :
 - **Ne pas répliquer le `scheduler`** (instance unique). Un doublon ne crée pas

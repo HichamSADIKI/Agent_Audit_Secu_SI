@@ -9,7 +9,18 @@
 }
 
 # API FastAPI (REST + WebSocket /ws)
+# Upstreams DYNAMIQUES : Caddy ré-interroge le DNS Docker (127.0.0.11) toutes
+# les 5 s et répartit la charge sur toutes les répliques du service `api`.
+# Fonctionne avec 1 instance comme avec N (cf. docker-compose.scale.yml).
 api.{$DOMAIN} {
 	encode gzip
-	reverse_proxy api:8000
+	reverse_proxy {
+		dynamic a {
+			name api
+			port 8000
+			refresh 5s
+			resolvers 127.0.0.11
+		}
+		lb_policy round_robin
+	}
 }

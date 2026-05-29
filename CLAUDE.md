@@ -60,6 +60,8 @@ Monorepo: `apps/api` (FastAPI backend), `apps/web` (Next.js dashboard), and a fu
 
 **Scheduler is a separate process** (`app/scheduler.py`, run via `python -m app.scheduler` / the `scheduler` compose service). It runs the periodic offline-machine check every 30 s. The API (`main.py`) no longer runs any background loop, so it is **stateless and horizontally scalable**. The scheduler must stay **single-instance** (don't replicate it); duplicate runs are harmless thanks to the idempotent alert index but wasteful.
 
+**Scaling the API** — two combinable dimensions, both safe because the API is stateless (JWT sessions, WS tickets + events via shared Redis): (1) uvicorn workers via `API_WORKERS` in the prod overlay; (2) **replicas** via `docker-compose.scale.yml` (`API_REPLICAS`, drops the api `container_name` with `!reset`), load-balanced by Caddy's `dynamic a` DNS upstreams (`infra/caddy/Caddyfile`) which re-resolves the `api` service name against Docker DNS (`127.0.0.11`) every 5 s. Apply with `-f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.scale.yml`.
+
 When adding backend features, follow the layout in `PLAN.md §2`: `models/` (SQLAlchemy), `schemas/` (Pydantic), `routers/`, `services/`.
 
 **Web internals (`apps/web`):** Next.js 14 App Router, TypeScript, Tailwind CSS, dark mode by default. Dependencies: `@tanstack/react-query` v5 (data fetching + cache invalidation), `recharts` v2 (line charts), `js-cookie` (token storage).
