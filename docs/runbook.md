@@ -186,13 +186,18 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec api \
 
 L'API est **sans état** : la détection périodique des machines offline tourne
 dans un process séparé (`app/scheduler.py`, service `scheduler`). On peut donc
-scaler l'API librement (workers uvicorn ou répliques derrière le proxy) :
+scaler l'API librement.
+
+**Workers uvicorn** — régler `API_WORKERS` dans `.env` (défaut 2 ; repère :
+`(2 × cœurs) + 1`), puis (re)lancer la stack prod :
 
 ```bash
-# Exemple : plusieurs workers uvicorn dans le conteneur API
-#   (surcharger la commande api avec --workers N)
-# ou plusieurs répliques derrière Caddy (load-balancing automatique).
+echo "API_WORKERS=4" >> .env
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d api
 ```
+
+La commande prod de l'API devient alors `uvicorn … --workers 4`. C'est sûr
+uniquement parce que l'API ne porte plus de tâche de fond (cf. `scheduler`).
 
 Garde-fous :
 - **Ne pas répliquer le `scheduler`** (instance unique). Un doublon ne crée pas

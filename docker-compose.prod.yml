@@ -32,8 +32,10 @@ services:
 
   api:
     # Pas de montage du code source, pas de --reload (image immuable).
+    # Nombre de workers configurable via API_WORKERS (défaut 2). Sûr car l'API
+    # est sans état : la tâche périodique vit dans le service `scheduler`.
     volumes: !override []
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "${API_WORKERS:-2}"]
     ports: !override []
     environment:
       ENVIRONMENT: production
