@@ -1,4 +1,4 @@
-"""Tests unitaires du service d'alerting (sans base de données)."""
+"""Tests unitaires du service d'alerting (sans base de données réelle)."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -31,7 +31,7 @@ def _machine(id_: int = 1, status: str = STATUS_ONLINE) -> Machine:
 
 
 def _metric(cpu: float = 50.0, mem: float = 50.0, disk: float = 50.0) -> Metric:
-    m = Metric(
+    return Metric(
         machine_id=1,
         time=datetime.now(timezone.utc),
         cpu_pct=cpu,
@@ -39,43 +39,44 @@ def _metric(cpu: float = 50.0, mem: float = 50.0, disk: float = 50.0) -> Metric:
         disk_pct=disk,
         uptime_s=3600,
     )
-    return m
 
 
-def _db_returning(*rows) -> AsyncMock:
-    """Retourne un AsyncMock de session dont scalar/scalars renvoie les valeurs données."""
+def _flow_db(rows, insert_id: int | None = 1, existing_open: Alert | None = None) -> AsyncMock:
+    """Session mock : scalars() → rows ; execute() (INSERT) → insert_id ; scalar() → existing_open."""
     db = AsyncMock()
     db.commit = AsyncMock()
-    db.add = MagicMock()
-    # scalar() calls return values in sequence
-    db.scalar = AsyncMock(side_effect=list(rows) + [None] * 20)
+
     scalars_result = MagicMock()
-    scalars_result.__iter__ = MagicMock(return_value=iter([]))
+    scalars_result.__iter__ = MagicMock(return_value=iter(rows))
     db.scalars = AsyncMock(return_value=scalars_result)
+
+    exec_result = MagicMock()
+    exec_result.scalar_one_or_none = MagicMock(return_value=insert_id)
+    db.execute = AsyncMock(return_value=exec_result)
+
+    db.scalar = AsyncMock(return_value=existing_open)
     return db
 
 
-# ── _open_alert ───────────────────────────────────────────────────────────────
+# ── _open_alert : INSERT ... ON CONFLICT DO NOTHING RETURNING ─────────────────
 
 @pytest.mark.asyncio
-async def test_open_alert_creates_when_none_exists() -> None:
-    db = _db_returning(None)  # scalar → no existing alert
-    with patch.object(alerting, "_publish", new=AsyncMock()):
+async def test_open_alert_publishes_when_inserted() -> None:
+    db = _flow_db(rows=[], insert_id=123)  # une ligne a été insérée
+    with patch.object(alerting, "_publish", new=AsyncMock()) as pub:
         await alerting._open_alert(db, 1, TYPE_CPU_HIGH, SEVERITY_WARNING, "msg", 95.0, 90.0)
-    db.add.assert_called_once()
-    added: Alert = db.add.call_args[0][0]
-    assert added.type == TYPE_CPU_HIGH
-    assert added.status == STATUS_OPEN
+    db.execute.assert_awaited_once()
+    pub.assert_awaited_once()
+    assert pub.await_args[0][0]["event"] == "alert.created"
 
 
 @pytest.mark.asyncio
-async def test_open_alert_no_duplicate() -> None:
-    existing = Alert(machine_id=1, type=TYPE_CPU_HIGH, severity=SEVERITY_WARNING,
-                     message="x", status=STATUS_OPEN)
-    db = _db_returning(existing)
-    with patch.object(alerting, "_publish", new=AsyncMock()):
-        await alerting._open_alert(db, 1, TYPE_CPU_HIGH, SEVERITY_WARNING, "msg", 95.0, 90.0)
-    db.add.assert_not_called()
+async def test_open_alert_silent_on_conflict() -> None:
+    db = _flow_db(rows=[], insert_id=None)  # conflit → aucune ligne insérée
+    with patch.object(alerting, "_publish", new=AsyncMock()) as pub:
+        await alerting._open_alert(db, 1, TYPE_MEM_HIGH, SEVERITY_WARNING, "msg", 95.0, 90.0)
+    db.execute.assert_awaited_once()
+    pub.assert_not_awaited()  # idempotent : pas de doublon d'événement
 
 
 # ── _maybe_resolve ────────────────────────────────────────────────────────────
@@ -84,19 +85,20 @@ async def test_open_alert_no_duplicate() -> None:
 async def test_maybe_resolve_resolves_open_alert() -> None:
     open_alert = Alert(machine_id=1, type=TYPE_MEM_HIGH, severity=SEVERITY_WARNING,
                        message="x", status=STATUS_OPEN)
-    db = _db_returning(open_alert)
-    with patch.object(alerting, "_publish", new=AsyncMock()):
+    db = _flow_db(rows=[], existing_open=open_alert)
+    with patch.object(alerting, "_publish", new=AsyncMock()) as pub:
         await alerting._maybe_resolve(db, 1, TYPE_MEM_HIGH)
     assert open_alert.status == STATUS_RESOLVED
     assert open_alert.resolved_at is not None
+    pub.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_maybe_resolve_noop_when_no_alert() -> None:
-    db = _db_returning(None)
-    with patch.object(alerting, "_publish", new=AsyncMock()):
+    db = _flow_db(rows=[], existing_open=None)
+    with patch.object(alerting, "_publish", new=AsyncMock()) as pub:
         await alerting._maybe_resolve(db, 1, TYPE_MEM_HIGH)
-    db.add.assert_not_called()
+    pub.assert_not_awaited()
 
 
 # ── check_threshold_alerts ────────────────────────────────────────────────────
@@ -105,70 +107,61 @@ async def test_maybe_resolve_noop_when_no_alert() -> None:
 async def test_disk_full_alert_fires_above_threshold() -> None:
     machine = _machine()
     latest = _metric(cpu=50.0, mem=50.0, disk=95.0)
+    db = _flow_db(rows=[latest])
 
-    db = AsyncMock()
-    db.commit = AsyncMock()
-    db.add = MagicMock()
-    db.scalar = AsyncMock(return_value=None)  # no existing alerts
+    published: list[dict] = []
 
-    scalars_result = MagicMock()
-    scalars_result.__iter__ = MagicMock(return_value=iter([latest]))
-    db.scalars = AsyncMock(return_value=scalars_result)
+    async def _capture(payload: dict) -> None:
+        published.append(payload)
 
-    with patch.object(alerting, "_publish", new=AsyncMock()):
+    with patch.object(alerting, "_publish", new=_capture):
         await alerting.check_threshold_alerts(db, machine)
 
-    # db.add was called with a disk_full alert
-    added_alerts = [call[0][0] for call in db.add.call_args_list]
-    types = [a.type for a in added_alerts]
-    assert TYPE_DISK_FULL in types
-    assert TYPE_MEM_HIGH not in types
+    created = [p["type"] for p in published if p["event"] == "alert.created"]
+    assert TYPE_DISK_FULL in created
+    assert TYPE_MEM_HIGH not in created
+    db.commit.assert_awaited()
 
 
 @pytest.mark.asyncio
 async def test_cpu_high_requires_n_consecutive_points() -> None:
-    """cpu_high only fires when ALL of the last N samples are over threshold."""
+    """cpu_high ne se déclenche que si TOUS les N derniers points dépassent le seuil."""
     from app.core.config import settings
 
     machine = _machine()
     n = settings.alert_cpu_consecutive_points
-    # Only 2 high samples when N=3 → no alert
-    rows = [_metric(cpu=95.0)] * (n - 1)
+    rows = [_metric(cpu=95.0)] * (n - 1)  # un point de moins que requis
+    db = _flow_db(rows=rows)
 
-    db = AsyncMock()
-    db.commit = AsyncMock()
-    db.add = MagicMock()
-    db.scalar = AsyncMock(return_value=None)
-    scalars_result = MagicMock()
-    scalars_result.__iter__ = MagicMock(return_value=iter(rows))
-    db.scalars = AsyncMock(return_value=scalars_result)
+    published: list[dict] = []
 
-    with patch.object(alerting, "_publish", new=AsyncMock()):
+    async def _capture(payload: dict) -> None:
+        published.append(payload)
+
+    with patch.object(alerting, "_publish", new=_capture):
         await alerting.check_threshold_alerts(db, machine)
 
-    added_types = [call[0][0].type for call in db.add.call_args_list]
-    assert TYPE_CPU_HIGH not in added_types
+    created = [p["type"] for p in published if p["event"] == "alert.created"]
+    assert TYPE_CPU_HIGH not in created
 
 
 # ── check_offline_machines ────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_offline_check_marks_silent_machines() -> None:
-    stale_machine = _machine(id_=5, status=STATUS_ONLINE)
-    stale_machine.last_seen_at = datetime.now(timezone.utc) - timedelta(minutes=10)
+    stale = _machine(id_=5, status=STATUS_ONLINE)
+    stale.last_seen_at = datetime.now(timezone.utc) - timedelta(minutes=10)
+    db = _flow_db(rows=[stale])
 
-    db = AsyncMock()
-    db.commit = AsyncMock()
-    db.add = MagicMock()
-    db.scalar = AsyncMock(return_value=None)  # no existing offline alert
-    scalars_result = MagicMock()
-    scalars_result.__iter__ = MagicMock(return_value=iter([stale_machine]))
-    db.scalars = AsyncMock(return_value=scalars_result)
+    published: list[dict] = []
 
-    with patch.object(alerting, "_publish", new=AsyncMock()):
+    async def _capture(payload: dict) -> None:
+        published.append(payload)
+
+    with patch.object(alerting, "_publish", new=_capture):
         await alerting.check_offline_machines(db)
 
-    assert stale_machine.status == STATUS_OFFLINE
+    assert stale.status == STATUS_OFFLINE
     db.commit.assert_awaited_once()
-    added_types = [call[0][0].type for call in db.add.call_args_list]
-    assert TYPE_OFFLINE in added_types
+    created = [p["type"] for p in published if p["event"] == "alert.created"]
+    assert TYPE_OFFLINE in created

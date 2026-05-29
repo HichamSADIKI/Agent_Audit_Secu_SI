@@ -51,6 +51,28 @@ services:
       redis:
         condition: service_healthy
 
+  # Planificateur : détection des machines offline (instance unique).
+  # Même image que l'API, commande différente. Permet de scaler l'API sans
+  # dupliquer la tâche périodique. NE PAS répliquer ce service.
+  scheduler:
+    build:
+      context: ./apps/api
+    container_name: guardianops-scheduler
+    restart: unless-stopped
+    command: ["python", "-m", "app.scheduler"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-guardian}:${POSTGRES_PASSWORD:-guardian}@db:5432/${POSTGRES_DB:-guardianops}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./apps/api:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   web:
     build:
       context: ./apps/web

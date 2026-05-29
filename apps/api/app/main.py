@@ -1,8 +1,6 @@
 """Point d'entrée FastAPI de GuardianOps AI."""
 from __future__ import annotations
 
-import asyncio
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -10,30 +8,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.core.db import SessionLocal, engine
+from app.core.db import engine
 from app.core.redis import redis_client
 from app.routers import agents, alerts, auth, ingest, machines, ws
-from app.services import alerting
 
-log = logging.getLogger(__name__)
-
-
-async def _offline_check_loop() -> None:
-    """Vérifie toutes les 30 s les machines silencieuses et crée des alertes offline."""
-    while True:
-        await asyncio.sleep(30)
-        try:
-            async with SessionLocal() as db:
-                await alerting.check_offline_machines(db)
-        except Exception:  # noqa: BLE001
-            log.exception("Offline check loop error")
+# La détection périodique des machines offline est désormais assurée par un
+# process séparé (app/scheduler.py, instance unique) → l'API est sans état et
+# peut être mise à l'échelle horizontalement.
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    task = asyncio.create_task(_offline_check_loop())
     yield
-    task.cancel()
     await engine.dispose()
     await redis_client.aclose()
 

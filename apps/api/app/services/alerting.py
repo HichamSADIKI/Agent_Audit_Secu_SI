@@ -16,7 +16,8 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -155,28 +156,35 @@ async def _open_alert(
     value: float | None,
     threshold: float | None,
 ) -> None:
-    """Ouvrir une alerte uniquement si aucune n'est déjà ouverte pour ce type."""
-    existing = await db.scalar(
-        select(Alert).where(
-            Alert.machine_id == machine_id,
-            Alert.type == type_,
-            Alert.status == STATUS_OPEN,
-        )
-    )
-    if existing is not None:
-        return
+    """Ouvrir une alerte, au plus une par (machine, type) ouverte à la fois.
 
-    alert = Alert(
-        machine_id=machine_id,
-        type=type_,
-        severity=severity,
-        message=message,
-        value=value,
-        threshold=threshold,
-        status=STATUS_OPEN,
+    Idempotent sous concurrence (plusieurs workers API + scheduler) grâce à
+    l'index unique partiel ``uq_alerts_open_per_machine_type`` : INSERT … ON
+    CONFLICT DO NOTHING. L'événement Redis n'est publié que si une ligne a été
+    réellement insérée (RETURNING).
+    """
+    stmt = (
+        pg_insert(Alert)
+        .values(
+            machine_id=machine_id,
+            type=type_,
+            severity=severity,
+            message=message,
+            value=value,
+            threshold=threshold,
+            status=STATUS_OPEN,
+        )
+        .on_conflict_do_nothing(
+            index_elements=["machine_id", "type"],
+            index_where=text("status = 'open'"),
+        )
+        .returning(Alert.id)
     )
-    db.add(alert)
-    await _publish({"event": "alert.created", "machine_id": machine_id, "type": type_, "severity": severity})
+    inserted_id = (await db.execute(stmt)).scalar_one_or_none()
+    if inserted_id is not None:
+        await _publish(
+            {"event": "alert.created", "machine_id": machine_id, "type": type_, "severity": severity}
+        )
 
 
 async def _maybe_resolve(db: AsyncSession, machine_id: int, type_: str) -> None:

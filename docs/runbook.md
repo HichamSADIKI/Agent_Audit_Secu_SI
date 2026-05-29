@@ -181,6 +181,22 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec api \
 ```
 
 > Nécessite Docker Compose ≥ 2.24 (tag de fusion `!override` pour retirer les ports).
-> Mise à l'échelle horizontale de l'API : la tâche périodique de détection offline
-> (`main.py`) suppose une **instance unique** ; l'extraire avant de lancer plusieurs
-> répliques/workers.
+
+### Mise à l'échelle horizontale de l'API
+
+L'API est **sans état** : la détection périodique des machines offline tourne
+dans un process séparé (`app/scheduler.py`, service `scheduler`). On peut donc
+scaler l'API librement (workers uvicorn ou répliques derrière le proxy) :
+
+```bash
+# Exemple : plusieurs workers uvicorn dans le conteneur API
+#   (surcharger la commande api avec --workers N)
+# ou plusieurs répliques derrière Caddy (load-balancing automatique).
+```
+
+Garde-fous :
+- **Ne pas répliquer le `scheduler`** (instance unique). Un doublon ne crée pas
+  de doublon d'alerte — l'ouverture est idempotente via l'index unique partiel
+  `uq_alerts_open_per_machine_type` — mais c'est du travail inutile.
+- L'ouverture d'alerte par seuil (chemin d'ingestion, exécuté dans chaque worker)
+  est protégée par ce même index : aucun doublon d'alerte ouverte possible.

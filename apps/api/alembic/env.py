@@ -21,13 +21,15 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
-def include_object(obj, name, type_, reflected, compare_to) -> bool:
-    """Ignorer les objets gérés par TimescaleDB lors de l'autogénération.
+# Index gérés manuellement dans les migrations (non déclarés sur les modèles) :
+# - metrics_time_idx : créé automatiquement par create_hypertable (TimescaleDB) ;
+# - uq_alerts_open_per_machine_type : index unique partiel (predicate sur status).
+#   Les prédicats partiels sont mal comparés par l'autogénération ; on les ignore.
+_MANUALLY_MANAGED_INDEXES = {"metrics_time_idx", "uq_alerts_open_per_machine_type"}
 
-    ``create_hypertable`` crée automatiquement ``metrics_time_idx`` ;
-    sans ce filtre, Alembic le voit comme une dérive et tente de le supprimer.
-    """
-    if type_ == "index" and name == "metrics_time_idx":
+
+def include_object(obj, name, type_, reflected, compare_to) -> bool:
+    if type_ == "index" and name in _MANUALLY_MANAGED_INDEXES:
         return False
     return True
 
