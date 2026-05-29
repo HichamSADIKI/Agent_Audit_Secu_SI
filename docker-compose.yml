@@ -67,5 +67,20 @@ services:
     depends_on:
       - api
 
+  # Agent Rust — démarrage optionnel via le profil "agent" :
+  #   docker compose --profile agent up agent --build
+  # Prérequis : agent/data/agent.toml renseigné (cf. docs/runbook.md).
+  # Sur le réseau Compose l'API est joignable à http://api:8000.
+  agent:
+    build:
+      context: ./agent
+    container_name: guardianops-agent
+    profiles: ["agent"]
+    restart: unless-stopped
+    volumes:
+      - ./agent/data:/agent
+    depends_on:
+      - api
+
 volumes:
   db_data:
