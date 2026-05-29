@@ -30,7 +30,10 @@ async fn main() -> Result<()> {
     let queue_path = PathBuf::from("queue.json");
 
     let config = Config::load(&config_path)?;
-    info!("Config chargée : api_url={} interval={}s", config.api_url, config.interval_secs);
+    info!(
+        "Config chargée : api_url={} interval={}s",
+        config.api_url, config.interval_secs
+    );
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
@@ -94,7 +97,10 @@ async fn main() -> Result<()> {
         let mut batch = queue::load(&queue_path);
         if batch.len() >= config.max_queue_size {
             let drop = batch.len() - config.max_queue_size + 1;
-            warn!("File offline pleine — suppression de {} échantillon(s) ancien(s)", drop);
+            warn!(
+                "File offline pleine — suppression de {} échantillon(s) ancien(s)",
+                drop
+            );
             batch.drain(..drop);
         }
         batch.push(sample);

@@ -82,11 +82,17 @@ pub async fn send_metrics(
             Ok(r) => {
                 let status = r.status();
                 if attempt < 3 {
-                    warn!("Tentative {}/3 : HTTP {} — retry dans {:?}", attempt, status, delay);
+                    warn!(
+                        "Tentative {}/3 : HTTP {} — retry dans {:?}",
+                        attempt, status, delay
+                    );
                     tokio::time::sleep(delay).await;
                     delay *= 2;
                 } else {
-                    bail!("Envoi métriques échoué après 3 tentatives : HTTP {}", status);
+                    bail!(
+                        "Envoi métriques échoué après 3 tentatives : HTTP {}",
+                        status
+                    );
                 }
             }
             Err(e) => {
@@ -104,11 +110,7 @@ pub async fn send_metrics(
 }
 
 /// Heartbeat simple (ne plante pas si le serveur est injoignable).
-pub async fn send_heartbeat(
-    client: &Client,
-    config: &Config,
-    state: &AgentState,
-) -> Result<()> {
+pub async fn send_heartbeat(client: &Client, config: &Config, state: &AgentState) -> Result<()> {
     let resp = client
         .post(format!("{}/ingest/heartbeat", config.api_url))
         .bearer_auth(&state.agent_token)

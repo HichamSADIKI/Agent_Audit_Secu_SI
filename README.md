@@ -1,5 +1,7 @@
 # Agent_Audit_Secu_SI — GuardianOps AI
 
+[![CI](https://github.com/HichamSADIKI/Agent_Audit_Secu_SI/actions/workflows/ci.yml/badge.svg)](https://github.com/HichamSADIKI/Agent_Audit_Secu_SI/actions/workflows/ci.yml)
+
 Plateforme open source d'**audit permanent SI**, monitoring temps réel, analyse IA,
 prédiction de panne, sécurité IT et auto-remediation.
 
