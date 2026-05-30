@@ -15,6 +15,7 @@ import {
 import { apiFetch } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { useRealtimeEvents } from "@/lib/ws";
+import { useTheme } from "@/components/theme";
 import type { Machine, MachineStatus, Metric } from "@/lib/types";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -64,12 +65,19 @@ function MetricChart({
   label: string;
   color: string;
 }) {
+  const { isDark } = useTheme();
+  const grid = isDark ? "#1e293b" : "#e2e8f0";
+  const tick = isDark ? "#64748b" : "#94a3b8";
+  const tooltipBg = isDark ? "#1e293b" : "#ffffff";
+  const tooltipBorder = isDark ? "#334155" : "#e2e8f0";
+  const tooltipLabel = isDark ? "#94a3b8" : "#475569";
+
   const latest = data.length > 0 ? data[data.length - 1][dataKey] : null;
 
   return (
-    <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700/50 dark:bg-slate-800/40 dark:shadow-none">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-300">{label}</span>
+        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{label}</span>
         {latest !== null && (
           <span className="text-sm font-semibold" style={{ color }}>
             {latest}%
@@ -78,33 +86,33 @@ function MetricChart({
       </div>
 
       {data.length === 0 ? (
-        <div className="flex h-24 items-center justify-center text-xs text-slate-600">
+        <div className="flex h-24 items-center justify-center text-xs text-slate-400 dark:text-slate-600">
           Aucune donnée
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={120}>
           <LineChart data={data} margin={{ top: 2, right: 4, bottom: 0, left: -22 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+            <CartesianGrid strokeDasharray="3 3" stroke={grid} />
             <XAxis
               dataKey="t"
-              tick={{ fontSize: 10, fill: "#64748b" }}
+              tick={{ fontSize: 10, fill: tick }}
               tickLine={false}
               interval="preserveStartEnd"
             />
             <YAxis
               domain={[0, 100]}
-              tick={{ fontSize: 10, fill: "#64748b" }}
+              tick={{ fontSize: 10, fill: tick }}
               tickLine={false}
               axisLine={false}
             />
             <Tooltip
               contentStyle={{
-                background: "#1e293b",
-                border: "1px solid #334155",
+                background: tooltipBg,
+                border: `1px solid ${tooltipBorder}`,
                 borderRadius: "0.5rem",
                 fontSize: 11,
               }}
-              labelStyle={{ color: "#94a3b8" }}
+              labelStyle={{ color: tooltipLabel }}
               formatter={(value: number) => [`${value}%`, label]}
             />
             <Line
@@ -168,11 +176,11 @@ export default function MachinePage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.push("/dashboard")}
-          className="text-sm text-slate-500 transition-colors hover:text-slate-300"
+          className="text-sm text-slate-500 transition-colors hover:text-slate-700 dark:hover:text-slate-300"
         >
           ← Retour
         </button>
-        <h1 className="text-xl font-semibold text-slate-100">
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
           {machine?.name ?? "…"}
         </h1>
         {machine && <StatusBadge status={machine.status} />}
@@ -180,11 +188,11 @@ export default function MachinePage() {
 
       {/* Meta */}
       {machine && (
-        <div className="flex flex-wrap gap-4 text-sm text-slate-400">
+        <div className="flex flex-wrap gap-4 text-sm text-slate-600 dark:text-slate-400">
           {machine.hostname && <span>{machine.hostname}</span>}
           {machine.os && <span>{machine.os}</span>}
           {machine.agent_version && (
-            <span className="text-slate-600">v{machine.agent_version}</span>
+            <span className="text-slate-400 dark:text-slate-600">v{machine.agent_version}</span>
           )}
           {machine.last_seen_at && (
             <span className="ml-auto text-xs text-slate-500">
@@ -204,7 +212,7 @@ export default function MachinePage() {
             className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
               range === r
                 ? "bg-sky-600 text-white"
-                : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+                : "bg-slate-200 text-slate-600 hover:bg-slate-300 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
             }`}
           >
             {r}

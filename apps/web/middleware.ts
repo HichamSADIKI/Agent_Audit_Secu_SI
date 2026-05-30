@@ -15,6 +15,7 @@ export function middleware(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  // Skip Next.js internals and static files
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Ignore les internes Next.js et tout fichier statique (ex. /logo.png) — sinon
+  // une requête d'asset non authentifiée serait redirigée vers /login.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.[\\w]+$).*)"],
 };

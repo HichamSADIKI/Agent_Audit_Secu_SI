@@ -80,6 +80,11 @@ services:
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-8800}
+      # Identifiants de démo pré-remplis dans le formulaire de login (dev uniquement).
+      NEXT_PUBLIC_DEMO_EMAIL: demo@guardianops.ai
+      NEXT_PUBLIC_DEMO_PASSWORD: demo1234
+      # Version affichée sur la page de login.
+      NEXT_PUBLIC_APP_VERSION: 0.1.0
     ports:
       - "${WEB_PORT:-3300}:3000"
     volumes:

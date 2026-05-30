@@ -32,8 +32,8 @@ function StatusPill({ status }: { status: AlertStatus }) {
     <span
       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
         status === "open"
-          ? "bg-rose-500/15 text-rose-300"
-          : "bg-slate-700/60 text-slate-400"
+          ? "bg-rose-500/15 text-rose-600 dark:text-rose-300"
+          : "bg-slate-200 text-slate-600 dark:bg-slate-700/60 dark:text-slate-400"
       }`}
     >
       {status === "open" ? "Ouverte" : "Résolue"}
@@ -73,7 +73,7 @@ export default function AlertsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-100">Alertes</h1>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Alertes</h1>
 
         <div className="flex gap-2">
           {FILTERS.map((f) => (
@@ -83,7 +83,7 @@ export default function AlertsPage() {
               className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
                 filter === f
                   ? "bg-sky-600 text-white"
-                  : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+                  : "bg-slate-200 text-slate-600 hover:bg-slate-300 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
               }`}
             >
               {FILTER_LABELS[f]}
@@ -98,15 +98,15 @@ export default function AlertsPage() {
       ) : alerts.length === 0 ? (
         <p className="text-sm text-slate-500">Aucune alerte.</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-700/50">
+        <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700/50">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-700/50 bg-slate-800/60">
+              <tr className="border-b border-slate-200 bg-slate-100 dark:border-slate-700/50 dark:bg-slate-800/60">
                 {["Type", "Machine", "Sévérité", "Message", "Valeur", "Statut", "Créée"].map(
                   (h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-xs font-medium text-slate-400"
+                      className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400"
                     >
                       {h}
                     </th>
@@ -114,19 +114,19 @@ export default function AlertsPage() {
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700/30">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700/30">
               {alerts.map((a) => (
-                <tr key={a.id} className="hover:bg-slate-800/30">
-                  <td className="px-4 py-3 font-mono text-xs text-slate-300">
+                <tr key={a.id} className="bg-white hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-800/30">
+                  <td className="px-4 py-3 font-mono text-xs text-slate-700 dark:text-slate-300">
                     {a.type}
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-400">
+                  <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
                     #{a.machine_id}
                   </td>
                   <td className="px-4 py-3">
                     <SeverityBadge severity={a.severity} />
                   </td>
-                  <td className="max-w-xs truncate px-4 py-3 text-xs text-slate-400">
+                  <td className="max-w-xs truncate px-4 py-3 text-xs text-slate-600 dark:text-slate-400">
                     {a.message}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
