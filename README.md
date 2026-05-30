@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.png" alt="GuardianOps AI" width="128" />
+</p>
+
 # Agent_Audit_Secu_SI — GuardianOps AI
 
 [![CI](https://github.com/HichamSADIKI/Agent_Audit_Secu_SI/actions/workflows/ci.yml/badge.svg)](https://github.com/HichamSADIKI/Agent_Audit_Secu_SI/actions/workflows/ci.yml)

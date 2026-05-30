@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="GuardianOps AI">
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+  </defs>
+
+  <!-- fond -->
+  <rect width="512" height="512" rx="104" fill="#0b0f14"/>
+  <rect x="6" y="6" width="500" height="500" rx="100" fill="none" stroke="#1e293b" stroke-width="2"/>
+
+  <!-- bouclier (guardian / sécurité) -->
+  <path d="M256 92 L396 146 V270 C396 364 334 416 256 446 C178 416 116 364 116 270 V146 Z"
+        fill="url(#brand)" fill-opacity="0.10"
+        stroke="url(#brand)" stroke-width="20" stroke-linejoin="round"/>
+
+  <!-- courbe de monitoring / heartbeat (audit temps réel) -->
+  <path d="M150 282 H206 L232 214 L272 350 L300 282 H362"
+        fill="none" stroke="url(#brand)" stroke-width="18"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- point « live » -->
+  <circle cx="362" cy="282" r="13" fill="#34d399"/>
+</svg>
