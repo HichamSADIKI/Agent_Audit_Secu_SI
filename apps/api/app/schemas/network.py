@@ -62,6 +62,28 @@ class FlowsResponse(BaseModel):
     flagged: int
 
 
+class IdsAlert(BaseModel):
+    """Une alerte Suricata (extraite d'eve.json) transmise par le forwarder."""
+
+    signature: str = Field(min_length=1, max_length=512)
+    category: str | None = Field(default=None, max_length=255)
+    # Priorité Suricata : 1 (majeure) … 3 (mineure).
+    severity: int = Field(default=3, ge=1, le=5)
+    src_ip: str | None = Field(default=None, max_length=45)
+    dest_ip: str | None = Field(default=None, max_length=45)
+    dest_port: int | None = Field(default=None, ge=0, le=65535)
+    proto: str | None = Field(default=None, max_length=16)
+
+
+class IdsAlertRequest(BaseModel):
+    alerts: list[IdsAlert] = Field(default_factory=list, max_length=2048)
+
+
+class IdsResponse(BaseModel):
+    received: int
+    recorded: int
+
+
 # ── Lecture (auth utilisateur) ────────────────────────────────────────────────
 
 # Niveau de risque d'un appareil (densifié en Phase B avec les vulnérabilités).
@@ -168,3 +190,4 @@ class NetworkSummary(BaseModel):
     new_last_window: int
     by_type: dict[str, int]
     last_scan_at: datetime | None
+    events_recent: int = 0  # événements d'intrusion dans la fenêtre récente

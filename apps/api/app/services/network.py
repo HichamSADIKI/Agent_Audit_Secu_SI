@@ -24,6 +24,7 @@ from app.models.device_vuln import DeviceVuln
 from app.models.machine import Machine
 from app.models.network_event import (
     KIND_ARP_SPOOF,
+    KIND_IDS_ALERT,
     KIND_NEW_DEVICE,
     KIND_NEW_OPEN_PORT,
     KIND_OUTBOUND_SUSPICIOUS,
@@ -36,6 +37,8 @@ from app.models.network_event import (
 from app.schemas.network import (
     Flow,
     FlowsResponse,
+    IdsAlert,
+    IdsResponse,
     NetworkStateReason,
     NetworkSummary,
     ScanDevice,
@@ -171,9 +174,15 @@ async def ingest_flows(
     """Analyse les flux sortants : IP/port suspects + heuristique de scan de ports."""
     flagged = 0
 
+    # Blocklist (embarquée ∪ feed Redis) chargée une fois pour tout le lot.
+    blocklist = await threatintel.load_blocklist()
+
     # 1) flux vers IP en liste noire / port C2 connu
     for f in flows:
-        verdict = threatintel.evaluate_flow(f.remote_ip, f.remote_port)
+        if f.remote_ip in blocklist:
+            verdict = ("critical", "Connexion vers une IP en liste noire")
+        else:
+            verdict = threatintel.suspicious_port(f.remote_port)
         if verdict is None:
             continue
         severity, reason = verdict
@@ -211,6 +220,40 @@ async def ingest_flows(
 
     await db.commit()
     return FlowsResponse(received=len(flows), flagged=flagged)
+
+
+def _ids_severity(suricata_severity: int) -> str:
+    """Mappe la priorité Suricata (1 majeure … 3+ mineure) sur nos sévérités."""
+    if suricata_severity <= 1:
+        return SEVERITY_HIGH
+    if suricata_severity == 2:
+        return SEVERITY_MEDIUM
+    return SEVERITY_LOW
+
+
+async def ingest_ids_alerts(
+    db: AsyncSession, machine: Machine, alerts: list[IdsAlert]
+) -> IdsResponse:
+    """Enregistre les alertes d'un IDS Suricata (sidecar) comme événements réseau."""
+    recorded = 0
+    for a in alerts:
+        inserted = await events.record_event(
+            db,
+            machine_id=machine.id,
+            kind=KIND_IDS_ALERT,
+            severity=_ids_severity(a.severity),
+            message=a.signature,
+            src_ip=a.src_ip,
+            dst_ip=a.dest_ip,
+            dst_port=a.dest_port,
+            details={"category": a.category, "proto": a.proto},
+            # Pas de dédup : le forwarder ne transmet que les nouvelles lignes
+            # d'eve.json (et des signatures distinctes peuvent viser la même cible).
+        )
+        if inserted:
+            recorded += 1
+    await db.commit()
+    return IdsResponse(received=len(alerts), recorded=recorded)
 
 
 async def enrich_devices(db: AsyncSession, devices: list[Device]) -> None:
@@ -398,6 +441,14 @@ async def get_summary(db: AsyncSession) -> NetworkSummary:
     outbound_events = await _count_events(KIND_OUTBOUND_SUSPICIOUS)
     portscan_events = await _count_events(KIND_PORT_SCAN)
     new_port_events = await _count_events(KIND_NEW_OPEN_PORT)
+    events_recent = (
+        await db.scalar(
+            select(func.count())
+            .select_from(NetworkEvent)
+            .where(NetworkEvent.created_at >= ev_window)
+        )
+        or 0
+    )
 
     sat_window = now - timedelta(minutes=settings.network_saturation_window_minutes)
     recent_new = (
@@ -439,6 +490,7 @@ async def get_summary(db: AsyncSession) -> NetworkSummary:
         new_last_window=new_last_window,
         by_type=by_type,
         last_scan_at=last_scan_at,
+        events_recent=events_recent,
     )
 
 

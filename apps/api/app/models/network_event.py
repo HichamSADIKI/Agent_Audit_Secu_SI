@@ -20,6 +20,7 @@ KIND_NEW_OPEN_PORT = "new_open_port"
 KIND_PORT_SCAN = "port_scan"
 KIND_ARP_SPOOF = "arp_spoof"
 KIND_OUTBOUND_SUSPICIOUS = "outbound_suspicious"
+KIND_IDS_ALERT = "ids_alert"  # remontée d'un IDS Suricata (sidecar)
 
 # Sévérités (alignées sur device_vuln).
 SEVERITY_INFO = "info"

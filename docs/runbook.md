@@ -296,6 +296,15 @@ analyse des flux (`outbound_suspicious` via blocklists embarquées
 en temps réel via Redis → WebSocket et alimentent l'état (Alarme / Saturé /
 Critique).
 
-> **IDS Suricata (différé).** L'inspection de trafic par signatures n'est pas
-> embarquée : prévue comme **sidecar** dédié (sur port miroir) poussant ses
-> alertes à l'API, hors de ce lot.
+**IDS Suricata (sidecar optionnel).** Inspection de trafic par signatures, via
+une surcouche dédiée :
+```bash
+# 1) créer une machine IDS → enroll_token ; 2) .env : IDS_ENROLL_TOKEN, SURICATA_IFACE
+docker compose -f docker-compose.yml -f docker-compose.suricata.yml up -d suricata ids-forwarder
+```
+Suricata écrit `eve.json` ; un forwarder pousse les alertes à `POST /ingest/ids`
+→ événements `ids_alert` dans la page Intrusions. Détails : `infra/suricata/README.md`.
+
+**Feeds de menace.** La blocklist IP est rafraîchie par le `scheduler` (feed
+abuse.ch Feodo → Redis, `services/feeds.py`), avec repli sur la liste embarquée
+hors-ligne. La base CVE est data-driven (`app/data/cve_signatures.json`).

@@ -153,6 +153,7 @@ export const EVENT_KIND_LABELS: Record<string, string> = {
   port_scan: "Scan de ports",
   arp_spoof: "ARP spoofing",
   outbound_suspicious: "Flux sortant suspect",
+  ids_alert: "Alerte IDS",
 };
 
 export function eventKindLabel(kind: string): string {

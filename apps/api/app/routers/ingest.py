@@ -9,7 +9,14 @@ from app.schemas.ingest import (
     IngestMetricsRequest,
     IngestMetricsResponse,
 )
-from app.schemas.network import FlowsRequest, FlowsResponse, ScanRequest, ScanResponse
+from app.schemas.network import (
+    FlowsRequest,
+    FlowsResponse,
+    IdsAlertRequest,
+    IdsResponse,
+    ScanRequest,
+    ScanResponse,
+)
 from app.services import alerting, anomaly, network
 from app.services.ingestion import ingest_metrics, record_heartbeat
 
@@ -71,3 +78,17 @@ async def post_flows(
 ) -> FlowsResponse:
     """Ingère les flux sortants observés et signale les intrusions (Phase C)."""
     return await network.ingest_flows(db, machine, payload.flows)
+
+
+@router.post(
+    "/ids",
+    response_model=IdsResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def post_ids(
+    payload: IdsAlertRequest,
+    db: DbSession,
+    machine: CurrentAgent,
+) -> IdsResponse:
+    """Ingère les alertes d'un IDS Suricata (sidecar) → événements réseau."""
+    return await network.ingest_ids_alerts(db, machine, payload.alerts)

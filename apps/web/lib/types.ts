@@ -91,7 +91,8 @@ export type NetworkEventKind =
   | "new_open_port"
   | "port_scan"
   | "arp_spoof"
-  | "outbound_suspicious";
+  | "outbound_suspicious"
+  | "ids_alert";
 
 export type NetworkEventItem = {
   id: number;
@@ -146,4 +147,5 @@ export type NetworkSummary = {
   new_last_window: number;
   by_type: Record<string, number>;
   last_scan_at: string | null;
+  events_recent: number;
 };

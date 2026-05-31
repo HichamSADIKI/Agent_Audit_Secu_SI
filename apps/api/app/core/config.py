@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     network_saturation_window_minutes: int = 10  # fenêtre courte pour la saturation
     network_portscan_distinct_targets: int = 30  # fan-out de flux → scan de ports
 
+    # Feeds de menace réels (blocklist IP) — rafraîchis par le scheduler
+    network_feeds_enabled: bool = True
+    network_blocklist_feed_url: str = "https://feodotracker.abuse.ch/downloads/ipblocklist.txt"
+    network_feed_refresh_minutes: int = 60
+    network_feed_ttl_hours: int = 48
+
     # CORS — liste séparée par des virgules
     cors_origins: str = "http://localhost:3300"
 

@@ -115,12 +115,17 @@ export default function NetworkPage() {
 
       {/* KPIs */}
       {summary && (
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
           <Kpi label="Appareils" value={summary.total} />
           <Kpi label="Actifs" value={summary.up} accent="text-emerald-600 dark:text-emerald-400" />
           <Kpi label="Hors-ligne" value={summary.down} accent="text-rose-600 dark:text-rose-400" />
           <Kpi label="Passerelles" value={summary.gateways} />
           <Kpi label="Nouveaux (24 h)" value={summary.new_last_window} accent="text-sky-600 dark:text-sky-400" />
+          <Kpi
+            label="Intrusions (1 h)"
+            value={summary.events_recent}
+            accent={summary.events_recent > 0 ? "text-amber-600 dark:text-amber-400" : undefined}
+          />
         </div>
       )}
 

@@ -11,6 +11,7 @@ import type { NetworkEventItem } from "@/lib/types";
 
 const KIND_FILTERS = [
   "all",
+  "ids_alert",
   "outbound_suspicious",
   "port_scan",
   "arp_spoof",
@@ -20,6 +21,7 @@ const KIND_FILTERS = [
 type KindFilter = (typeof KIND_FILTERS)[number];
 const KIND_FILTER_LABELS: Record<KindFilter, string> = {
   all: "Tous",
+  ids_alert: "Alertes IDS",
   outbound_suspicious: "Flux suspects",
   port_scan: "Scans de ports",
   arp_spoof: "ARP spoofing",
@@ -27,15 +29,27 @@ const KIND_FILTER_LABELS: Record<KindFilter, string> = {
   new_device: "Nouveaux appareils",
 };
 
+const STATUS_FILTERS = ["open", "acknowledged", "all"] as const;
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+const STATUS_FILTER_LABELS: Record<StatusFilter, string> = {
+  open: "Ouvertes",
+  acknowledged: "Acquittées",
+  all: "Toutes",
+};
+
 export default function EventsPage() {
   const token = getToken() ?? "";
   const qc = useQueryClient();
   const [kind, setKind] = useState<KindFilter>("all");
+  const [status, setStatus] = useState<StatusFilter>("open");
 
-  const url = kind === "all" ? "/network/events" : `/network/events?kind=${kind}`;
+  const params = new URLSearchParams();
+  if (kind !== "all") params.set("kind", kind);
+  if (status !== "all") params.set("status", status);
+  const url = `/network/events${params.toString() ? `?${params}` : ""}`;
 
   const { data: events = [], isLoading } = useQuery<NetworkEventItem[]>({
-    queryKey: ["network-events", kind],
+    queryKey: ["network-events", kind, status],
     queryFn: () => apiFetch<NetworkEventItem[]>(url, token),
     refetchInterval: 20_000,
   });
@@ -43,6 +57,11 @@ export default function EventsPage() {
   useRealtimeEvents(() => {
     qc.invalidateQueries({ queryKey: ["network-events"] });
   });
+
+  async function ack(id: number) {
+    await apiFetch(`/network/events/${id}/ack`, token, { method: "POST" });
+    qc.invalidateQueries({ queryKey: ["network-events"] });
+  }
 
   return (
     <div className="space-y-6">
@@ -75,6 +94,22 @@ export default function EventsPage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        {STATUS_FILTERS.map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatus(s)}
+            className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+              status === s
+                ? "bg-slate-700 text-white dark:bg-slate-600"
+                : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-400 dark:hover:bg-slate-700"
+            }`}
+          >
+            {STATUS_FILTER_LABELS[s]}
+          </button>
+        ))}
+      </div>
+
       {isLoading ? (
         <p className="text-sm text-slate-500">Chargement…</p>
       ) : events.length === 0 ? (
@@ -87,7 +122,7 @@ export default function EventsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-100 dark:border-slate-700/50 dark:bg-slate-800/60">
-                {["Sévérité", "Type", "Message", "Source", "Destination", "Appareil", "Quand"].map(
+                {["Sévérité", "Type", "Message", "Source", "Destination", "Appareil", "Quand", ""].map(
                   (h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400">
                       {h}
@@ -120,6 +155,18 @@ export default function EventsPage() {
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {new Date(e.created_at).toLocaleString("fr-FR")}
+                  </td>
+                  <td className="px-4 py-3 text-right text-xs">
+                    {e.status === "acknowledged" ? (
+                      <span className="text-slate-400">acquitté</span>
+                    ) : (
+                      <button
+                        onClick={() => ack(e.id)}
+                        className="rounded border border-slate-300 px-2 py-0.5 text-slate-600 transition-colors hover:border-sky-400 hover:text-sky-600 dark:border-slate-600 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-400"
+                      >
+                        Acquitter
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

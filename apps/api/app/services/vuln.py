@@ -11,7 +11,10 @@ persiste dans `device_vulns`.
 """
 from __future__ import annotations
 
+import json
+import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 from app.models.device_vuln import (
     SEVERITY_CRITICAL,
@@ -96,30 +99,43 @@ _EXPOSURE_RULES: dict[int, tuple[str, str, float | None, str]] = {
 }
 
 
-# ── Base CVE embarquée (sous-chaîne bannière/version → CVE) ───────────────────
-# (needle, cve_id, title, severity, cvss, description). Sous-ensemble illustratif.
-_CVE_DB: list[tuple[str, str, str, str, float, str]] = [
+# ── Base CVE (sous-chaîne bannière/version → CVE) ─────────────────────────────
+# Data-driven : chargée depuis app/data/cve_signatures.json (extensible / régénérable
+# depuis un feed type NVD/CISA KEV). Repli minimal embarqué si le fichier manque.
+log = logging.getLogger(__name__)
+
+_CVE_FILE = Path(__file__).resolve().parent.parent / "data" / "cve_signatures.json"
+
+_FALLBACK_CVE_DB: list[tuple[str, str, str, str, float | None, str]] = [
     ("vsftpd 2.3.4", "CVE-2011-2523", "vsftpd 2.3.4 — backdoor", SEVERITY_CRITICAL, 9.8,
      "La version 2.3.4 de vsftpd contient une porte dérobée donnant un shell root."),
-    ("proftpd 1.3.5", "CVE-2015-3306", "ProFTPD 1.3.5 — mod_copy RCE", SEVERITY_CRITICAL, 9.8,
-     "mod_copy permet la copie de fichiers arbitraires et l'exécution de code."),
-    ("apache/2.4.49", "CVE-2021-41773", "Apache httpd 2.4.49 — path traversal/RCE", SEVERITY_CRITICAL, 9.8,
-     "Traversée de chemin pouvant mener à l'exécution de code à distance."),
-    ("apache/2.4.50", "CVE-2021-42013", "Apache httpd 2.4.50 — path traversal/RCE", SEVERITY_CRITICAL, 9.8,
-     "Contournement du correctif de CVE-2021-41773."),
-    ("openssh_7.2", "CVE-2016-6210", "OpenSSH < 7.3 — énumération d'utilisateurs", SEVERITY_MEDIUM, 5.3,
-     "Différence de temps de réponse permettant d'énumérer les comptes valides."),
-    ("openssh_7.", "CVE-2018-15473", "OpenSSH < 7.8 — énumération d'utilisateurs", SEVERITY_MEDIUM, 5.3,
-     "Réponse différenciée permettant d'énumérer les utilisateurs valides."),
-    ("microsoft-iis/6.0", "CVE-2017-7269", "IIS 6.0 — WebDAV buffer overflow (RCE)", SEVERITY_HIGH, 8.1,
-     "Débordement de tampon dans ScStoragePathFromUrl (WebDAV) → exécution de code."),
-    ("openssl/1.0.1", "CVE-2014-0160", "OpenSSL 1.0.1 — Heartbleed", SEVERITY_HIGH, 7.5,
-     "Fuite de mémoire du serveur via l'extension TLS Heartbeat."),
-    ("exim 4.8", "CVE-2019-10149", "Exim < 4.92 — RCE (The Return of the WIZard)", SEVERITY_CRITICAL, 9.8,
-     "Exécution de commandes via une adresse destinataire forgée."),
-    ("samba", "CVE-2017-7494", "Samba — SambaCry RCE", SEVERITY_CRITICAL, 9.8,
-     "Chargement d'une bibliothèque partagée arbitraire via un partage inscriptible (versions < 4.6.4)."),
+    ("apache/2.4.49", "CVE-2021-41773", "Apache httpd 2.4.49 — path traversal/RCE",
+     SEVERITY_CRITICAL, 9.8, "Traversée de chemin → exécution de code à distance."),
 ]
+
+
+def _load_cve_db() -> list[tuple[str, str, str, str, float | None, str]]:
+    try:
+        data = json.loads(_CVE_FILE.read_text(encoding="utf-8"))
+        rows = [
+            (
+                s["needle"].lower(),
+                s["cve_id"],
+                s["title"],
+                s["severity"],
+                s.get("cvss"),
+                s.get("description", ""),
+            )
+            for s in data["signatures"]
+        ]
+        if rows:
+            return rows
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Chargement %s impossible (%s) — repli embarqué", _CVE_FILE.name, exc)
+    return _FALLBACK_CVE_DB
+
+
+_CVE_DB = _load_cve_db()
 
 
 def evaluate(ports: list[PortLike]) -> list[dict]:

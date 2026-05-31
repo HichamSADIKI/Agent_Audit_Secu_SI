@@ -1,0 +1,10 @@
+# Forwarder Suricata → GuardianOps (stdlib uniquement, image minimale).
+FROM python:3.12-slim
+
+WORKDIR /app
+COPY infra/suricata/forwarder.py /app/forwarder.py
+
+# Lecture seule d'eve.json (monté en volume) + état dans /state.
+VOLUME ["/state"]
+
+CMD ["python", "-u", "forwarder.py"]

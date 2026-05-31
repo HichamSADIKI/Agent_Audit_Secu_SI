@@ -8,7 +8,7 @@ from app.deps import CurrentUser, DbSession
 from app.models.device import Device
 from app.models.device_port import DevicePort
 from app.models.device_vuln import DeviceVuln
-from app.models.network_event import NetworkEvent
+from app.models.network_event import STATUS_ACK, NetworkEvent
 from app.schemas.network import DeviceOut, EventOut, NetworkSummary, PortOut, VulnOut
 from app.services import network, vuln
 
@@ -90,6 +90,10 @@ async def list_events(
     _user: CurrentUser,
     kind: str | None = Query(default=None, description="Filtrer par type d'événement"),
     severity: str | None = Query(default=None, description="Filtrer par sévérité"),
+    event_status: str | None = Query(
+        default=None, alias="status", description="Filtrer par statut : open, acknowledged"
+    ),
+    device_id: int | None = Query(default=None, description="Filtrer par appareil"),
     limit: int = Query(default=200, ge=1, le=1000),
 ) -> list[NetworkEvent]:
     """Événements d'intrusion / anomalies réseau (du plus récent au plus ancien)."""
@@ -98,7 +102,24 @@ async def list_events(
         q = q.where(NetworkEvent.kind == kind)
     if severity is not None:
         q = q.where(NetworkEvent.severity == severity)
+    if event_status is not None:
+        q = q.where(NetworkEvent.status == event_status)
+    if device_id is not None:
+        q = q.where(NetworkEvent.device_id == device_id)
     return list(await db.scalars(q))
+
+
+@router.post("/events/{event_id}/ack", response_model=EventOut)
+async def ack_event(event_id: int, db: DbSession, _user: CurrentUser) -> NetworkEvent:
+    """Acquitte un événement (statut → acknowledged)."""
+    event = await db.get(NetworkEvent, event_id)
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Événement introuvable"
+        )
+    event.status = STATUS_ACK
+    await db.commit()
+    return event
 
 
 @router.get("/vulns", response_model=list[VulnOut])

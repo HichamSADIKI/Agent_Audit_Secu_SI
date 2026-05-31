@@ -9,8 +9,15 @@ import {
   DeviceRiskBadge,
   VulnSeverityBadge,
   deviceTypeLabel,
+  eventKindLabel,
 } from "@/components/network-state";
-import type { Device, DevicePort, DeviceStatus, Vuln } from "@/lib/types";
+import type {
+  Device,
+  DevicePort,
+  DeviceStatus,
+  NetworkEventItem,
+  Vuln,
+} from "@/lib/types";
 
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
@@ -43,6 +50,13 @@ export default function DevicePage() {
   const { data: vulns = [] } = useQuery<Vuln[]>({
     queryKey: ["device-vulns", id],
     queryFn: () => apiFetch<Vuln[]>(`/network/devices/${id}/vulns`, token),
+    refetchInterval: 30_000,
+  });
+
+  const { data: events = [] } = useQuery<NetworkEventItem[]>({
+    queryKey: ["device-events", id],
+    queryFn: () =>
+      apiFetch<NetworkEventItem[]>(`/network/events?device_id=${id}&limit=50`, token),
     refetchInterval: 30_000,
   });
 
@@ -167,6 +181,44 @@ export default function DevicePage() {
                         <td className="px-4 py-3 text-xs text-slate-500">{p.service_version ?? "—"}</td>
                         <td className="max-w-md truncate px-4 py-3 font-mono text-[11px] text-slate-400">
                           {p.banner ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          {/* Événements récents */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Événements récents <span className="text-slate-400">({events.length})</span>
+            </h2>
+            {events.length === 0 ? (
+              <p className="text-sm text-slate-500">Aucun événement pour cet appareil.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700/50">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-100 dark:border-slate-700/50 dark:bg-slate-800/60">
+                      {["Sévérité", "Type", "Message", "Quand"].map((h) => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700/30">
+                    {events.map((e) => (
+                      <tr key={e.id} className="bg-white hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-800/30">
+                        <td className="px-4 py-3"><VulnSeverityBadge severity={e.severity} /></td>
+                        <td className="px-4 py-3 text-xs font-medium text-slate-700 dark:text-slate-300">
+                          {eventKindLabel(e.kind)}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">{e.message}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">
+                          {new Date(e.created_at).toLocaleString("fr-FR")}
                         </td>
                       </tr>
                     ))}

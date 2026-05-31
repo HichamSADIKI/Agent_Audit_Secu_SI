@@ -1,0 +1,15 @@
+{
+  "_comment": "Signatures CVE par sous-chaîne de bannière/version (Phase B). Data-driven et extensible : ajouter des entrées ou régénérer depuis un feed (NVD/CISA KEV). 'needle' est comparé en minuscules contre (bannière + version).",
+  "signatures": [
+    {"needle": "vsftpd 2.3.4", "cve_id": "CVE-2011-2523", "title": "vsftpd 2.3.4 — backdoor", "severity": "critical", "cvss": 9.8, "description": "La version 2.3.4 de vsftpd contient une porte dérobée donnant un shell root."},
+    {"needle": "proftpd 1.3.5", "cve_id": "CVE-2015-3306", "title": "ProFTPD 1.3.5 — mod_copy RCE", "severity": "critical", "cvss": 9.8, "description": "mod_copy permet la copie de fichiers arbitraires et l'exécution de code."},
+    {"needle": "apache/2.4.49", "cve_id": "CVE-2021-41773", "title": "Apache httpd 2.4.49 — path traversal/RCE", "severity": "critical", "cvss": 9.8, "description": "Traversée de chemin pouvant mener à l'exécution de code à distance."},
+    {"needle": "apache/2.4.50", "cve_id": "CVE-2021-42013", "title": "Apache httpd 2.4.50 — path traversal/RCE", "severity": "critical", "cvss": 9.8, "description": "Contournement du correctif de CVE-2021-41773."},
+    {"needle": "openssh_7.2", "cve_id": "CVE-2016-6210", "title": "OpenSSH < 7.3 — énumération d'utilisateurs", "severity": "medium", "cvss": 5.3, "description": "Différence de temps de réponse permettant d'énumérer les comptes valides."},
+    {"needle": "openssh_7.", "cve_id": "CVE-2018-15473", "title": "OpenSSH < 7.8 — énumération d'utilisateurs", "severity": "medium", "cvss": 5.3, "description": "Réponse différenciée permettant d'énumérer les utilisateurs valides."},
+    {"needle": "microsoft-iis/6.0", "cve_id": "CVE-2017-7269", "title": "IIS 6.0 — WebDAV buffer overflow (RCE)", "severity": "high", "cvss": 8.1, "description": "Débordement de tampon dans ScStoragePathFromUrl (WebDAV) → exécution de code."},
+    {"needle": "openssl/1.0.1", "cve_id": "CVE-2014-0160", "title": "OpenSSL 1.0.1 — Heartbleed", "severity": "high", "cvss": 7.5, "description": "Fuite de mémoire du serveur via l'extension TLS Heartbeat."},
+    {"needle": "exim 4.8", "cve_id": "CVE-2019-10149", "title": "Exim < 4.92 — RCE (The Return of the WIZard)", "severity": "critical", "cvss": 9.8, "description": "Exécution de commandes via une adresse destinataire forgée."},
+    {"needle": "samba", "cve_id": "CVE-2017-7494", "title": "Samba — SambaCry RCE", "severity": "critical", "cvss": 9.8, "description": "Chargement d'une bibliothèque partagée arbitraire via un partage inscriptible (versions < 4.6.4)."}
+  ]
+}
