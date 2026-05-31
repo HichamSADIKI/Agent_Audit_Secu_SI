@@ -308,3 +308,15 @@ Suricata écrit `eve.json` ; un forwarder pousse les alertes à `POST /ingest/id
 **Feeds de menace.** La blocklist IP est rafraîchie par le `scheduler` (feed
 abuse.ch Feodo → Redis, `services/feeds.py`), avec repli sur la liste embarquée
 hors-ligne. La base CVE est data-driven (`app/data/cve_signatures.json`).
+
+**Notifications (webhook).** Les signaux ≥ seuil (intrusions et alertes) peuvent
+être poussés vers un webhook Slack/Mattermost/Discord/générique. Dans `.env` :
+```
+NOTIFY_ENABLED=true
+NOTIFY_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
+NOTIFY_MIN_SEVERITY=high        # info|low|medium|high|critical
+NOTIFY_FORMAT=slack             # slack|discord|generic
+```
+Best-effort : `services/notify.py` poste via `urllib` dans un thread et n'échoue
+jamais bruyamment. Branché sur `events.record_event` (intrusions) et
+`alerting.open_alert` (alertes seuils/anomalies).

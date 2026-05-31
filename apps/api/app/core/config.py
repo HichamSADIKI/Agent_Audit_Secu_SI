@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     network_feed_refresh_minutes: int = 60
     network_feed_ttl_hours: int = 48
 
+    # Notifications sortantes (webhook) pour les signaux critiques
+    notify_enabled: bool = False
+    notify_webhook_url: str = ""
+    notify_min_severity: str = "high"   # info|low|medium|high|critical
+    notify_format: str = "slack"        # slack|discord|generic
+
     # CORS — liste séparée par des virgules
     cors_origins: str = "http://localhost:3300"
 

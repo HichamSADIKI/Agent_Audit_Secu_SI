@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis import redis_client
 from app.models.network_event import NetworkEvent
+from app.services import notify
 from app.services.alerting import REDIS_EVENTS_CHANNEL
 
 log = logging.getLogger(__name__)
@@ -73,6 +74,7 @@ async def record_event(
             "machine_id": machine_id,
         }
     )
+    await notify.maybe_notify(severity=severity, title=kind, message=message)
     return True
 
 
