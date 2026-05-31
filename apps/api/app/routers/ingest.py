@@ -9,7 +9,15 @@ from app.schemas.ingest import (
     IngestMetricsRequest,
     IngestMetricsResponse,
 )
-from app.services import alerting, anomaly
+from app.schemas.network import (
+    FlowsRequest,
+    FlowsResponse,
+    IdsAlertRequest,
+    IdsResponse,
+    ScanRequest,
+    ScanResponse,
+)
+from app.services import alerting, anomaly, network
 from app.services.ingestion import ingest_metrics, record_heartbeat
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -42,3 +50,45 @@ async def post_heartbeat(db: DbSession, machine: CurrentAgent) -> HeartbeatRespo
     await record_heartbeat(db, machine)
     await alerting.resolve_offline_if_needed(db, machine)
     return HeartbeatResponse(status="ok")
+
+
+@router.post(
+    "/scan",
+    response_model=ScanResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def post_scan(
+    payload: ScanRequest,
+    db: DbSession,
+    machine: CurrentAgent,
+) -> ScanResponse:
+    """Ingère un snapshot de scan réseau (upsert des appareils découverts)."""
+    return await network.ingest_scan(db, machine, payload)
+
+
+@router.post(
+    "/flows",
+    response_model=FlowsResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def post_flows(
+    payload: FlowsRequest,
+    db: DbSession,
+    machine: CurrentAgent,
+) -> FlowsResponse:
+    """Ingère les flux sortants observés et signale les intrusions (Phase C)."""
+    return await network.ingest_flows(db, machine, payload.flows)
+
+
+@router.post(
+    "/ids",
+    response_model=IdsResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def post_ids(
+    payload: IdsAlertRequest,
+    db: DbSession,
+    machine: CurrentAgent,
+) -> IdsResponse:
+    """Ingère les alertes d'un IDS Suricata (sidecar) → événements réseau."""
+    return await network.ingest_ids_alerts(db, machine, payload.alerts)

@@ -1,0 +1,45 @@
+# Surcouche IDS Suricata (Phase C — différé/optionnel).
+#
+# Suricata sniffe une interface (réseau hôte) et écrit eve.json dans un volume
+# partagé ; le forwarder tail eve.json et pousse les alertes à l'API.
+#
+# Prérequis :
+#   1. Créer une machine pour l'IDS :  POST /machines  → noter l'enroll_token.
+#   2. Renseigner dans .env :  IDS_ENROLL_TOKEN=<token>  et  SURICATA_IFACE=<iface>.
+#   3. Lancer :
+#        docker compose -f docker-compose.yml -f docker-compose.suricata.yml up -d suricata ids-forwarder
+#
+# Suricata a besoin de NET_ADMIN/NET_RAW et du réseau hôte pour capturer le trafic.
+services:
+  suricata:
+    image: jasonish/suricata:latest
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_NICE
+    command: ["-i", "${SURICATA_IFACE:-eth0}"]
+    volumes:
+      - suricata-logs:/var/log/suricata
+    restart: unless-stopped
+
+  ids-forwarder:
+    build:
+      context: .
+      dockerfile: infra/suricata/Dockerfile.forwarder
+    environment:
+      - API_URL=${IDS_API_URL:-http://api:8000}
+      - IDS_ENROLL_TOKEN=${IDS_ENROLL_TOKEN:-}
+      - EVE_PATH=/var/log/suricata/eve.json
+      - STATE_PATH=/state/state.json
+      - FORWARDER_HOSTNAME=suricata-ids
+    volumes:
+      - suricata-logs:/var/log/suricata:ro
+      - ids-forwarder-state:/state
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  suricata-logs:
+  ids-forwarder-state:

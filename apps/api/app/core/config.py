@@ -49,6 +49,29 @@ class Settings(BaseSettings):
     anomaly_z_threshold: float = 3.5    # seuil de z-score robuste (MAD)
     anomaly_abs_floor: float = 5.0      # écart absolu mini (points de %) si base ~constante
 
+    # Scan réseau / état du réseau
+    network_scan_stale_minutes: int = 15      # au-delà → état "indisponible" (angle mort)
+    network_new_device_window_hours: int = 24  # fenêtre "nouvel appareil" pour l'état réseau
+
+    # Intrusions / flux sortants (Phase C)
+    network_event_window_minutes: int = 60       # fenêtre des événements influençant l'état
+    network_event_dedup_minutes: int = 60        # anti-spam (même IP/port suspect)
+    network_saturation_new_devices: int = 10     # nb de nouveaux appareils → état "saturé"
+    network_saturation_window_minutes: int = 10  # fenêtre courte pour la saturation
+    network_portscan_distinct_targets: int = 30  # fan-out de flux → scan de ports
+
+    # Feeds de menace réels (blocklist IP) — rafraîchis par le scheduler
+    network_feeds_enabled: bool = True
+    network_blocklist_feed_url: str = "https://feodotracker.abuse.ch/downloads/ipblocklist.txt"
+    network_feed_refresh_minutes: int = 60
+    network_feed_ttl_hours: int = 48
+
+    # Notifications sortantes (webhook) pour les signaux critiques
+    notify_enabled: bool = False
+    notify_webhook_url: str = ""
+    notify_min_severity: str = "high"   # info|low|medium|high|critical
+    notify_format: str = "slack"        # slack|discord|generic
+
     # CORS — liste séparée par des virgules
     cors_origins: str = "http://localhost:3300"
 

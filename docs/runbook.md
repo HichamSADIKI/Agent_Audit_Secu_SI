@@ -244,3 +244,79 @@ Garde-fous :
   `uq_alerts_open_per_machine_type` — mais c'est du travail inutile.
 - L'ouverture d'alerte par seuil (chemin d'ingestion, exécuté dans chaque worker)
   est protégée par ce même index : aucun doublon d'alerte ouverte possible.
+
+## 9. Scan réseau (surveillance in/out)
+
+La rubrique **Réseau** du dashboard découvre les appareils du LAN (type,
+système, nom), via le scan léger de l'agent (Phase A). Ports/vulnérabilités
+(Phase B) et intrusions/flux sortants (Phase C) s'ajoutent ensuite.
+
+**Activation (côté agent, opt-in).** Dans `agent.toml`, section `[scan]` :
+
+```toml
+[scan]
+enabled = true
+allowlist = ["192.168.1.0/24"]   # refus par défaut hors sous-réseau local
+interval_secs = 300
+```
+
+Refus par défaut : seules les plages de l'allowlist *qui recoupent un
+sous-réseau local de l'hôte* sont scannées. Le scan est rootless (TCP-connect +
+lecture de la table ARP `/proc/net/arp` + reverse-DNS + OUI MAC).
+
+**⚠️ Réseau du conteneur.** Dans Docker, l'agent ne voit que le réseau du
+conteneur — il ne découvrira pas le vrai LAN. Pour un scan réel, lancez l'agent
+**sur l'hôte** :
+
+```bash
+# (a) binaire natif sur l'hôte (recommandé)
+cargo build --release && ./target/release/guardianops-agent
+
+# (b) conteneur en réseau hôte (Linux uniquement)
+docker run --rm --network host -v "$PWD/data":/agent guardianops-agent:dev
+```
+
+**Vérification.** Après ~1 intervalle de scan, les appareils apparaissent dans
+`GET /network/devices` et sur la page **Réseau** du dashboard ; l'état global du
+réseau (Sain / Surveillé / Alarme / Saturé / Critique / Indisponible) est exposé
+par `GET /network/summary`.
+
+**Phase B — ports & vulnérabilités.** Sur les hôtes vivants, l'agent scanne le
+top-100 des ports TCP et capture les bannières ; l'API en déduit les
+vulnérabilités via des **règles d'exposition** + une **base CVE hors-ligne
+embarquée** (`apps/api/app/services/vuln.py`, sous-ensemble à étendre).
+Endpoints : `GET /network/devices/{id}/ports|vulns`, `GET /network/vulns`.
+
+**Phase C — intrusions & flux sortants.** En plus du scan, l'agent collecte les
+flux sortants de l'hôte (`/proc/net/tcp`) et les pousse à `POST /ingest/flows`.
+L'API génère des **événements** (`GET /network/events`, page **Intrusions**) :
+heuristiques de diff de scan (`new_device`, `new_open_port`, `arp_spoof`) et
+analyse des flux (`outbound_suspicious` via blocklists embarquées
+`services/threatintel.py`, `port_scan` par fan-out). Les événements sont poussés
+en temps réel via Redis → WebSocket et alimentent l'état (Alarme / Saturé /
+Critique).
+
+**IDS Suricata (sidecar optionnel).** Inspection de trafic par signatures, via
+une surcouche dédiée :
+```bash
+# 1) créer une machine IDS → enroll_token ; 2) .env : IDS_ENROLL_TOKEN, SURICATA_IFACE
+docker compose -f docker-compose.yml -f docker-compose.suricata.yml up -d suricata ids-forwarder
+```
+Suricata écrit `eve.json` ; un forwarder pousse les alertes à `POST /ingest/ids`
+→ événements `ids_alert` dans la page Intrusions. Détails : `infra/suricata/README.md`.
+
+**Feeds de menace.** La blocklist IP est rafraîchie par le `scheduler` (feed
+abuse.ch Feodo → Redis, `services/feeds.py`), avec repli sur la liste embarquée
+hors-ligne. La base CVE est data-driven (`app/data/cve_signatures.json`).
+
+**Notifications (webhook).** Les signaux ≥ seuil (intrusions et alertes) peuvent
+être poussés vers un webhook Slack/Mattermost/Discord/générique. Dans `.env` :
+```
+NOTIFY_ENABLED=true
+NOTIFY_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
+NOTIFY_MIN_SEVERITY=high        # info|low|medium|high|critical
+NOTIFY_FORMAT=slack             # slack|discord|generic
+```
+Best-effort : `services/notify.py` poste via `urllib` dans un thread et n'échoue
+jamais bruyamment. Branché sur `events.record_event` (intrusions) et
+`alerting.open_alert` (alertes seuils/anomalies).

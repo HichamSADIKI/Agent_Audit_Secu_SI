@@ -36,9 +36,116 @@ export type Alert = {
   resolved_at: string | null;
 };
 
-export type RealtimeEvent = {
-  event: "alert.created" | "alert.resolved";
+export type RealtimeEvent =
+  | {
+      event: "alert.created" | "alert.resolved";
+      machine_id: number;
+      type: string;
+      severity?: string;
+    }
+  | {
+      event: "network.event";
+      kind: string;
+      severity: string;
+      machine_id: number;
+    };
+
+// ── Réseau ───────────────────────────────────────────────────────────────────
+
+export type DeviceStatus = "up" | "down" | "unknown";
+export type DeviceRisk = "safe" | "vulnerable" | "critical";
+
+export type Device = {
+  id: number;
+  discovered_by_machine_id: number;
+  ip: string;
+  mac: string | null;
+  hostname: string | null;
+  vendor: string | null;
+  device_type: string;
+  os_guess: string | null;
+  is_gateway: boolean;
+  status: DeviceStatus;
+  first_seen_at: string;
+  last_seen_at: string;
+  risk: DeviceRisk;
+  open_ports: number;
+  vuln_count: number;
+};
+
+export type DevicePort = {
+  id: number;
+  device_id: number;
+  port: number;
+  protocol: string;
+  service_name: string | null;
+  service_version: string | null;
+  banner: string | null;
+  last_seen_at: string;
+};
+
+export type VulnSeverity = "info" | "low" | "medium" | "high" | "critical";
+
+export type NetworkEventKind =
+  | "new_device"
+  | "new_open_port"
+  | "port_scan"
+  | "arp_spoof"
+  | "outbound_suspicious"
+  | "ids_alert";
+
+export type NetworkEventItem = {
+  id: number;
   machine_id: number;
-  type: string;
-  severity?: string;
+  device_id: number | null;
+  kind: NetworkEventKind;
+  severity: VulnSeverity;
+  message: string;
+  src_ip: string | null;
+  dst_ip: string | null;
+  dst_port: number | null;
+  status: string;
+  created_at: string;
+};
+
+export type Vuln = {
+  id: number;
+  device_id: number;
+  port_id: number | null;
+  cve_id: string | null;
+  title: string;
+  severity: VulnSeverity;
+  cvss: number | null;
+  description: string | null;
+  source: string;
+  detected_at: string;
+  device_ip: string | null;
+  device_hostname: string | null;
+};
+
+export type NetworkState =
+  | "indisponible"
+  | "sain"
+  | "surveille"
+  | "alarme"
+  | "sature"
+  | "critique";
+
+export type NetworkStateReason = {
+  state: NetworkState;
+  label: string;
+  count: number;
+};
+
+export type NetworkSummary = {
+  state: NetworkState;
+  reasons: NetworkStateReason[];
+  total: number;
+  up: number;
+  down: number;
+  gateways: number;
+  new_last_window: number;
+  by_type: Record<string, number>;
+  last_scan_at: string | null;
+  events_recent: number;
 };

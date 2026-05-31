@@ -8,6 +8,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV = [
   { href: "/dashboard", label: "Vue globale" },
+  { href: "/network", label: "Réseau" },
+  { href: "/network/events", label: "Intrusions" },
   { href: "/alerts", label: "Alertes" },
 ];
 

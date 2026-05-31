@@ -185,6 +185,10 @@ async def open_alert(
         await _publish(
             {"event": "alert.created", "machine_id": machine_id, "type": type_, "severity": severity}
         )
+        # Notification sortante best-effort (gating par sévérité dans le service).
+        from app.services import notify
+
+        await notify.maybe_notify(severity=severity, title=type_, message=message)
 
 
 async def resolve_alert(db: AsyncSession, machine_id: int, type_: str) -> None:

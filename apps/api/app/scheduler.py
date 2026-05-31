@@ -18,7 +18,7 @@ import logging
 from app.core.config import settings
 from app.core.db import SessionLocal, engine
 from app.core.redis import redis_client
-from app.services import alerting
+from app.services import alerting, feeds
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,6 +36,9 @@ async def _run() -> None:
         CHECK_INTERVAL_S,
         settings.alert_offline_minutes,
     )
+    # Rafraîchissement des feeds de menace toutes les N itérations (best-effort).
+    feed_every = max(1, settings.network_feed_refresh_minutes * 60 // CHECK_INTERVAL_S)
+    iteration = 0
     try:
         while True:
             try:
@@ -43,6 +46,14 @@ async def _run() -> None:
                     await alerting.check_offline_machines(db)
             except Exception:  # noqa: BLE001
                 log.exception("Erreur lors de la vérification offline")
+
+            if settings.network_feeds_enabled and iteration % feed_every == 0:
+                try:
+                    await feeds.refresh_blocklist()
+                except Exception:  # noqa: BLE001
+                    log.exception("Erreur lors du rafraîchissement des feeds")
+
+            iteration += 1
             await asyncio.sleep(CHECK_INTERVAL_S)
     finally:
         await engine.dispose()
