@@ -1,5 +1,7 @@
 mod collector;
 mod config;
+mod flows;
+mod netscan;
 mod queue;
 mod state;
 mod transport;
@@ -74,6 +76,18 @@ async fn main() -> Result<()> {
         info!("Heartbeat initial envoyé");
     }
 
+    // ── Scan réseau (tâche de fond séparée, opt-in) ───────────────────────────
+    if config.scan.enabled {
+        info!(
+            "Scan réseau activé (interval={}s, {} CIDR autorisé(s))",
+            config.scan.interval_secs,
+            config.scan.allowlist.len()
+        );
+        tokio::spawn(scan_loop(client.clone(), config.clone(), state.clone()));
+    } else {
+        info!("Scan réseau désactivé (scan.enabled=false)");
+    }
+
     // ── Boucle principale ───────────────────────────────────────────────────
     let mut collector = Collector::new();
     let mut interval = time::interval(Duration::from_secs(config.interval_secs));
@@ -120,6 +134,37 @@ async fn main() -> Result<()> {
                     error!("Impossible d'écrire la file offline : {}", qe);
                 }
             }
+        }
+    }
+}
+
+/// Boucle de scan réseau périodique (premier scan immédiat, puis tous les
+/// `scan.interval_secs`). Best-effort : un échec d'envoi est simplement loggé.
+async fn scan_loop(client: reqwest::Client, config: Config, state: AgentState) {
+    let mut interval = time::interval(Duration::from_secs(config.scan.interval_secs.max(30)));
+    interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+    loop {
+        interval.tick().await;
+
+        let devices = netscan::run_scan(&config.scan).await;
+        info!("Scan réseau terminé : {} appareil(s) découvert(s)", devices.len());
+
+        let cidr = if config.scan.allowlist.is_empty() {
+            None
+        } else {
+            Some(config.scan.allowlist.join(","))
+        };
+
+        if let Err(e) = transport::send_scan(&client, &config, &state, &devices, cidr).await {
+            warn!("Envoi scan échoué : {}", e);
+        }
+
+        // Surveillance « out » : flux sortants de l'hôte → détection d'intrusion.
+        let host_flows = flows::collect_flows();
+        info!("{} flux sortant(s) collecté(s)", host_flows.len());
+        if let Err(e) = transport::send_flows(&client, &config, &state, &host_flows).await {
+            warn!("Envoi flux échoué : {}", e);
         }
     }
 }

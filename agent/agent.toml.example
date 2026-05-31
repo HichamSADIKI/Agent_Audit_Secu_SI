@@ -14,3 +14,37 @@ interval_secs = 30
 
 # Taille maximale de la file offline (défaut : 1000 échantillons)
 max_queue_size = 1000
+
+# ── Scan réseau (Phase A : découverte d'appareils) ────────────────────────────
+# Surveillance réseau in/out : découvre les appareils du LAN (type, système,
+# nom), puis (Phases B/C) leurs ports/vulnérabilités et les intrusions.
+#
+# IMPORTANT : dans Docker, l'agent ne voit que le réseau du conteneur. Pour
+# scanner le vrai LAN, lancez l'agent avec « network_mode: host » (Linux) ou en
+# binaire natif sur l'hôte. Voir docs/runbook.md.
+[scan]
+# Active le scan périodique (désactivé par défaut — opt-in explicite).
+enabled = false
+
+# Plages autorisées (CIDR). Refus par défaut si vide. Seules les plages qui
+# recoupent un sous-réseau local de l'hôte sont effectivement scannées.
+allowlist = ["192.168.1.0/24"]
+
+# Intervalle entre deux scans complets (secondes, défaut : 300).
+interval_secs = 300
+
+# Ports sondés pour la présence + l'indice de type (Phase A).
+probe_ports = [22, 80, 443, 445, 3389, 53, 9100, 515, 631, 8080, 8443, 5353]
+
+# Ports scannés en détail (bannière) sur les hôtes vivants (Phase B).
+# Par défaut : top-100 TCP courants. Décommenter pour personnaliser.
+# scan_ports = [22, 80, 443, 445, 3389, 3306, 5432, 6379, 8080]
+
+# Timeout par connexion TCP (ms) et concurrence du balayage.
+timeout_ms = 400
+concurrency = 256
+
+# Surveillance « out » (Phase C) : quand le scan est activé, l'agent collecte
+# aussi les flux sortants de l'hôte (/proc/net/tcp) et les envoie à l'API, qui
+# les confronte à des blocklists embarquées + heuristiques (scan de ports, C2).
+# Aucune configuration supplémentaire n'est requise.

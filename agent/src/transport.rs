@@ -6,6 +6,8 @@ use tracing::warn;
 
 use crate::collector::MetricSample;
 use crate::config::Config;
+use crate::flows::Flow;
+use crate::netscan::ScanDevice;
 use crate::state::AgentState;
 
 // ── Enrôlement ────────────────────────────────────────────────────────────────
@@ -107,6 +109,66 @@ pub async fn send_metrics(
         }
     }
     unreachable!()
+}
+
+// ── Scan réseau ─────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct ScanRequest<'a> {
+    devices: &'a [ScanDevice],
+    cidr: Option<String>,
+}
+
+/// Envoie un snapshot de scan réseau (best-effort : le prochain scan ré-essaie).
+pub async fn send_scan(
+    client: &Client,
+    config: &Config,
+    state: &AgentState,
+    devices: &[ScanDevice],
+    cidr: Option<String>,
+) -> Result<()> {
+    let body = ScanRequest { devices, cidr };
+    let resp = client
+        .post(format!("{}/ingest/scan", config.api_url))
+        .bearer_auth(&state.agent_token)
+        .json(&body)
+        .send()
+        .await
+        .context("Requête scan réseau")?;
+
+    if !resp.status().is_success() {
+        bail!("Scan refusé : HTTP {}", resp.status());
+    }
+    Ok(())
+}
+
+// ── Flux sortants ─────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct FlowsRequest<'a> {
+    flows: &'a [Flow],
+}
+
+/// Envoie les flux sortants observés (best-effort).
+pub async fn send_flows(
+    client: &Client,
+    config: &Config,
+    state: &AgentState,
+    flows: &[Flow],
+) -> Result<()> {
+    let body = FlowsRequest { flows };
+    let resp = client
+        .post(format!("{}/ingest/flows", config.api_url))
+        .bearer_auth(&state.agent_token)
+        .json(&body)
+        .send()
+        .await
+        .context("Requête flux sortants")?;
+
+    if !resp.status().is_success() {
+        bail!("Flux refusés : HTTP {}", resp.status());
+    }
+    Ok(())
 }
 
 /// Heartbeat simple (ne plante pas si le serveur est injoignable).

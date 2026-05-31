@@ -10,7 +10,7 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.core.db import engine
 from app.core.redis import redis_client
-from app.routers import agents, alerts, auth, ingest, machines, ws
+from app.routers import agents, alerts, auth, ingest, machines, network, ws
 
 # La détection périodique des machines offline est désormais assurée par un
 # process séparé (app/scheduler.py, instance unique) → l'API est sans état et
@@ -54,6 +54,7 @@ app.include_router(machines.router)
 app.include_router(agents.router)
 app.include_router(ingest.router)
 app.include_router(alerts.router)
+app.include_router(network.router)
 app.include_router(ws.router)
 
 
