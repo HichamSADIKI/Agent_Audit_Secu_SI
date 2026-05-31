@@ -148,7 +148,10 @@ async fn scan_loop(client: reqwest::Client, config: Config, state: AgentState) {
         interval.tick().await;
 
         let devices = netscan::run_scan(&config.scan).await;
-        info!("Scan réseau terminé : {} appareil(s) découvert(s)", devices.len());
+        info!(
+            "Scan réseau terminé : {} appareil(s) découvert(s)",
+            devices.len()
+        );
 
         let cidr = if config.scan.allowlist.is_empty() {
             None

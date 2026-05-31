@@ -26,12 +26,7 @@ pub fn collect_flows() -> Vec<Flow> {
     out
 }
 
-fn parse_proc_net(
-    path: &str,
-    is_v6: bool,
-    seen: &mut HashSet<(String, u16)>,
-    out: &mut Vec<Flow>,
-) {
+fn parse_proc_net(path: &str, is_v6: bool, seen: &mut HashSet<(String, u16)>, out: &mut Vec<Flow>) {
     let Ok(content) = std::fs::read_to_string(path) else {
         return;
     };

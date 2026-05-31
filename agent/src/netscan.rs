@@ -136,7 +136,10 @@ pub async fn run_scan(cfg: &ScanConfig) -> Vec<ScanDevice> {
     for own in &own_ips {
         live.remove(own); // ne pas se lister soi-même
     }
-    info!("{} h\u{f4}te(s) vivant(s) — scan d\u{e9}taill\u{e9} des ports", live.len());
+    info!(
+        "{} h\u{f4}te(s) vivant(s) — scan d\u{e9}taill\u{e9} des ports",
+        live.len()
+    );
 
     // ── Passe 2 : scan détaillé des ports + bannières sur les hôtes vivants ──
     let scan_ports = Arc::new(cfg.scan_ports.clone());
@@ -146,7 +149,9 @@ pub async fn run_scan(cfg: &ScanConfig) -> Vec<ScanDevice> {
             let sem = sem.clone();
             detail_handles.push(tokio::spawn(async move {
                 let _permit = sem.acquire_owned().await.ok()?;
-                probe_and_grab(ip, port, timeout_dur).await.map(|sp| (ip, sp))
+                probe_and_grab(ip, port, timeout_dur)
+                    .await
+                    .map(|sp| (ip, sp))
             }));
         }
     }
