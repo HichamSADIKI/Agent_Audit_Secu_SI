@@ -60,6 +60,10 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile.prod
+      # NEXT_PUBLIC_* est inliné au BUILD par Next.js — un simple `environment:` runtime
+      # (ci-dessous) n'a aucun effet sur le bundle déjà figé, doit transiter en build-arg.
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${DOMAIN}
     volumes: !override []
     ports: !override []
     environment:

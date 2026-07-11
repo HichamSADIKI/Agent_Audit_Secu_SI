@@ -17,9 +17,14 @@ name: guardianops
 
 services:
   web:
+    build:
+      # NEXT_PUBLIC_* est inliné au BUILD par Next.js — le `environment:` runtime ci-dessous
+      # n'a aucun effet sur le bundle déjà figé (même bug que côté domaine, docker-compose.prod.yml).
+      args:
+        # Le Caddyfile normal sépare dashboard/API par sous-domaine (api.{$DOMAIN}) ; une IP
+        # nue ne supporte pas les sous-domaines → distinction par port (cf. Caddyfile.ip).
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}:${API_PORT:-8443}
     environment:
-      # Le Caddyfile normal sépare dashboard/API par sous-domaine (api.{$DOMAIN}) ; une IP
-      # nue ne supporte pas les sous-domaines → distinction par port (cf. Caddyfile.ip).
       NEXT_PUBLIC_API_URL: https://${DOMAIN}:${API_PORT:-8443}
 
   proxy:
