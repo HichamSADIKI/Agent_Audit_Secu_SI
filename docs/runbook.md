@@ -243,14 +243,44 @@ propage au Caddyfile. Vérifier au préalable qu'ils ne sont pas eux-mêmes déj
 (`sudo ss -tlnp | grep -E ':8443|:9443'`) et que le pare-feu les autorise (`sudo ufw allow
 8443/tcp && sudo ufw allow 9443/tcp`).
 
-**Bascule vers le domaine réel dès que le DNS est prêt** — aucune perte de données, juste une
-reconfiguration réseau :
+**Bascule vers le domaine réel dès que le DNS est prêt** — deux chemins selon que 80/443 sont
+libres sur ce serveur ou déjà pris par un autre service :
+
+**A. Serveur DÉDIÉ (80/443 libres)** — aucune perte de données, juste une reconfiguration réseau :
 ```bash
 # 1. Poser les DNS A : mon-domaine.com + api.mon-domaine.com → IP du serveur
 # 2. .env : DOMAIN=mon-domaine.com (remplace l'IP)
 # 3. Relancer SANS la surcouche -ip (retour au Caddyfile normal, Let's Encrypt automatique)
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build proxy web
 ```
+
+**B. Serveur CO-HÉBERGÉ (80/443 déjà pris par un autre projet, ex. SGI)** — Let's Encrypt en mode
+standard (HTTP-01/TLS-ALPN-01) est IMPOSSIBLE sans ces ports. Solution : faire fronter par le
+Caddy de l'AUTRE projet (déjà propriétaire de 80/443 + Let's Encrypt fonctionnel), qui reverse-proxy
+directement vers `web`/`api` via un réseau Docker externe partagé — surcouche
+`docker-compose.prod-fronted.yml` :
+```bash
+# 1. Poser les DNS A : go.mon-domaine.com + api.go.mon-domaine.com → IP du serveur
+# 2. Le réseau externe partagé (créé par l'autre projet, ex. `caddy_net` côté SGI) doit exister :
+docker network inspect caddy_net >/dev/null 2>&1 || docker network create caddy_net
+# 3. .env : DOMAIN=go.mon-domaine.com (remplace l'IP ou le sous-domaine provisoire)
+# 4. Démarrer SANS le service `proxy` (son propre Caddy devient inutile — c'est l'AUTRE Caddy
+#    qui reverse-proxy). Retirer l'ancien conteneur proxy s'il tournait déjà (mode IP) :
+docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.prod-ip.yml \
+  stop proxy && docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  -f docker-compose.prod-ip.yml rm -f proxy
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  -f docker-compose.prod-fronted.yml up -d --build db redis api scheduler web
+# 5. Côté AUTRE projet : ajouter 2 blocs Caddyfile (dashboard + API, reverse_proxy vers
+#    go-web:3000 / go-api:8000 sur le réseau partagé) + variables d'env correspondantes,
+#    puis recréer SON Caddy (`up -d --force-recreate caddy`) pour obtenir les certificats.
+```
+Aucune exposition publique propre à GuardianOps dans ce mode (`web`/`api` ne rejoignent QUE le
+réseau partagé + le réseau interne du projet — 0 port publié). Fermer les règles pare-feu
+ouvertes pour le mode IP si elles ne servent plus (`sudo ufw delete allow 8443/tcp` etc.).
+Une fois basculé, `agent.toml` doit pointer sur le nouveau domaine public (`api_url =
+"https://api.go.mon-domaine.com"`) et **`ca_cert_path` doit être retiré** — le certificat est
+désormais un vrai Let's Encrypt, plus besoin de charger le CA auto-signé.
 
 ### Mise à l'échelle horizontale de l'API
 
