@@ -14,14 +14,14 @@
     "next": "16.2.10",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "recharts": "^2.12.7"
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "4.3.2",
     "@types/js-cookie": "^3.0.6",
     "@types/node": "26.1.1",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "@tailwindcss/postcss": "4.3.2",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.2.10",
     "postcss": "8.5.16",

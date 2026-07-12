@@ -113,7 +113,7 @@ function MetricChart({
                 fontSize: 11,
               }}
               labelStyle={{ color: tooltipLabel }}
-              formatter={(value: number) => [`${value}%`, label]}
+              formatter={(value) => [`${value ?? 0}%`, label]}
             />
             <Line
               type="monotone"
