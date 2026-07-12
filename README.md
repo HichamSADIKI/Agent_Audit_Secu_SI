@@ -39,11 +39,11 @@ cp .env.example .env
 python3 -c "import secrets; print('JWT_SECRET=' + secrets.token_hex(32))"   # → coller dans .env
 
 # 2. Lancer la stack
-docker compose up --build -d db redis api web
+docker compose up --build -d db redis go-api go-web
 
 # 3. Migrations + compte admin
-docker compose exec api alembic upgrade head
-docker compose exec api python -m app.cli create-admin admin@guardianops.ai 'MotDePasseFort!'
+docker compose exec go-api alembic upgrade head
+docker compose exec go-api python -m app.cli create-admin admin@guardianops.ai 'MotDePasseFort!'
 
 # 4. Vérifier
 #    - API liveness  : http://localhost:8800/health
@@ -82,8 +82,8 @@ du [runbook](./docs/runbook.md#3-démo-end-to-end-agent--api--dashboard).
 
 ```bash
 # Backend (pytest + ruff)
-docker compose run --rm api sh -c "pip install -r requirements-dev.txt && pytest -q && ruff check ."
+docker compose run --rm go-api sh -c "pip install -r requirements-dev.txt && pytest -q && ruff check ."
 
 # Frontend (typecheck + lint)
-docker compose exec web sh -c "npx tsc --noEmit && npm run lint"
+docker compose exec go-web sh -c "npx tsc --noEmit && npm run lint"
 ```
